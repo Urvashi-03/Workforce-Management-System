@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Employee Management System</title>
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --primary:#4f46e5; --danger:#dc2626; --ok:#16a34a; --border:#e5e7eb; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    header { background:var(--primary); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+    header h1 { margin:0; font-size:1.2rem; cursor:pointer; }
+    main { max-width:1100px; margin:20px auto; padding:0 14px; }
+    .card { background:var(--card); border-radius:10px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    input, select, button { font:inherit; padding:9px 11px; border:1px solid var(--border); border-radius:7px; }
+    .toolbar input { flex:1 1 220px; }
+    button { cursor:pointer; background:#fff; }
+    button.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    button.danger { background:var(--danger); color:#fff; border-color:var(--danger); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:680px; }
+    th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--border); font-size:.92rem; }
+    th { color:var(--muted); font-weight:600; }
+    .badge { padding:2px 9px; border-radius:99px; font-size:.78rem; color:#fff; }
+    .badge.Active { background:var(--ok); } .badge.Inactive { background:var(--muted); }
+    .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .actions button { padding:5px 9px; font-size:.82rem; }
+    .pager { display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:8px; color:var(--muted); }
+    .pager div { display:flex; gap:8px; align-items:center; }
+    form { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+    label { display:flex; flex-direction:column; gap:5px; font-size:.88rem; color:var(--muted); }
+    label input, label select { color:var(--text); }
+    .err { color:var(--danger); font-size:.8rem; min-height:1em; }
+    .full { grid-column:1/-1; display:flex; gap:8px; }
+    dl { display:grid; grid-template-columns:max-content 1fr; gap:10px 22px; margin:0 0 16px; }
+    dt { color:var(--muted); } dd { margin:0; font-weight:500; }
+    #toast { position:fixed; bottom:20px; right:20px; padding:11px 16px; border-radius:8px; color:#fff; display:none; max-width:320px; }
+    .empty { text-align:center; color:var(--muted); padding:30px 0; }
+  </style>
+</head>
+<body>
+<header>
+  <h1 onclick="location.hash='#/'">Employee Management System</h1>
+  <button class="primary" style="background:#fff;color:var(--primary)" onclick="location.hash='#/add'">+ Add Employee</button>
+</header>
+<main><div class="card" id="view"></div></main>
+<div id="toast"></div>
+
+<script>
+  const API = '/employees';
+  const DEPARTMENTS = ['Engineering', 'HR', 'Finance', 'Marketing', 'Sales', 'Operations'];
+  const view = document.getElementById('view');
+  const state = { search: '', department: '', status: '', page: 0, size: 10 };
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money = n => Number(n).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+  function toast(msg, ok = true) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = ok ? 'var(--ok)' : 'var(--danger)'; t.style.display = 'block';
+    clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3000);
+  }
+
+  async function api(path, options = {}) {
+    const res = await fetch(API + path, { cache: 'no-store', headers: { 'Content-Type': 'application/json' }, ...options });
+    if (res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const e = new Error(data.message || 'Request failed'); e.errors = data.errors; throw e; }
+    return data;
+  }
+
+  /* ---------- LIST ---------- */
+  async function showList() {
+    view.innerHTML = `
+      <div class="toolbar">
+        <input id="q" placeholder="Search by name or email" value="${esc(state.search)}">
+        <select id="dept"><option value="">All departments</option>${DEPARTMENTS.map(d => `<option ${state.department === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+        <select id="stat"><option value="">All status</option>${['Active', 'Inactive'].map(s => `<option ${state.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      </div>
+      <div id="list"><div class="empty">Loading...</div></div>`;
+    const q = document.getElementById('q');
+    let timer;
+    q.oninput = () => { clearTimeout(timer); timer = setTimeout(() => { state.search = q.value; state.page = 0; loadList(); }, 300); };
+    document.getElementById('dept').onchange = e => { state.department = e.target.value; state.page = 0; loadList(); };
+    document.getElementById('stat').onchange = e => { state.status = e.target.value; state.page = 0; loadList(); };
+    loadList();
+  }
+
+  async function loadList() {
+    const box = document.getElementById('list');
+    const p = new URLSearchParams({ page: state.page, size: state.size });
+    if (state.search) p.set('search', state.search);
+    if (state.department) p.set('department', state.department);
+    if (state.status) p.set('status', state.status);
+    try {
+      const d = await api('/get?' + p);
+      if (d.page >= d.totalPages && d.totalPages > 0) { state.page = d.totalPages - 1; return loadList(); }
+      box.innerHTML = d.content.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Designation</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>${d.content.map(e => `<tr>
+            <td>${e.employeeId}</td><td>${esc(e.fullName)}</td><td>${esc(e.email)}</td>
+            <td>${esc(e.department)}</td><td>${esc(e.designation)}</td>
+            <td><span class="badge ${esc(e.status)}">${esc(e.status)}</span></td>
+            <td><div class="actions">
+              <button onclick="location.hash='#/view/${e.employeeId}'">View</button>
+              <button onclick="location.hash='#/edit/${e.employeeId}'">Edit</button>
+              <button class="danger" onclick="removeEmployee(${e.employeeId}, '${esc(e.fullName).replace(/'/g, '&#39;')}')">Delete</button>
+            </td></tr>`).join('')}</tbody></table></div>
+        <div class="pager">
+          <span>${d.totalElements} employee(s) &middot; Page ${d.totalPages ? d.page + 1 : 0} of ${d.totalPages}</span>
+          <div>
+            <select id="size">${[5, 10, 20, 50].map(n => `<option ${state.size === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
+            <button ${d.page === 0 ? 'disabled' : ''} onclick="go(${d.page - 1})">Prev</button>
+            <button ${d.page + 1 >= d.totalPages ? 'disabled' : ''} onclick="go(${d.page + 1})">Next</button>
+          </div>
+        </div>` : '<div class="empty">No employees found.</div>';
+      const sz = document.getElementById('size');
+      if (sz) sz.onchange = e => { state.size = +e.target.value; state.page = 0; loadList(); };
+    } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+  function go(p) { state.page = p; loadList(); }
+
+  async function removeEmployee(id, name) {
+    if (!confirm(`Delete employee "${name}"? This cannot be undone.`)) return;
+    try { await api('/delete/' + id, { method: 'DELETE' }); toast('Employee deleted'); loadList(); }
+    catch (e) { toast(e.message, false); }
+  }
+
+  /* ---------- ADD / EDIT ---------- */
+  async function showForm(id) {
+    let emp = { fullName: '', email: '', phoneNo: '', department: '', designation: '', dateOfJoining: '', salary: '', status: 'Active' };
+    if (id) {
+      try { emp = await api('/get/' + id); } catch (e) { view.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    }
+    const f = (name, label, type = 'text') =>
+      `<label>${label}<input name="${name}" type="${type}" value="${esc(emp[name])}" ${name === 'salary' ? 'min="1" step="any"' : ''}><span class="err" data-err="${name}"></span></label>`;
+    view.innerHTML = `
+      <h2 style="margin-top:0">${id ? 'Edit' : 'Add'} Employee</h2>
+      <form id="f" novalidate>
+        ${f('fullName', 'Full Name')}${f('email', 'Email', 'email')}${f('phoneNo', 'Phone Number', 'tel')}
+        <label>Department<select name="department"><option value="">Select</option>
+          ${DEPARTMENTS.map(d => `<option ${emp.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+          ${emp.department && !DEPARTMENTS.includes(emp.department) ? `<option selected>${esc(emp.department)}</option>` : ''}
+        </select><span class="err" data-err="department"></span></label>
+        ${f('designation', 'Designation')}${f('dateOfJoining', 'Date of Joining', 'date')}${f('salary', 'Salary (INR)', 'number')}
+        <label>Status<select name="status">${['Active', 'Inactive'].map(s => `<option ${emp.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select><span class="err" data-err="status"></span></label>
+        <div class="full"><button type="submit" class="primary">${id ? 'Update' : 'Save'}</button><button type="button" onclick="history.back()">Cancel</button></div>
+      </form>`;
+    const form = document.getElementById('f');
+    form.dateOfJoining.max = new Date().toISOString().split('T')[0];
+    form.onsubmit = async ev => {
+      ev.preventDefault();
+      form.querySelectorAll('.err').forEach(s => s.textContent = '');
+      const body = Object.fromEntries(new FormData(form));
+      body.salary = body.salary === '' ? 0 : Number(body.salary);
+      try {
+        await api(id ? '/update/' + id : '/create', { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
+        toast(id ? 'Employee updated' : 'Employee added'); location.hash = '#/';
+      } catch (e) {
+        if (e.errors) Object.entries(e.errors).forEach(([k, m]) => { const s = form.querySelector(`[data-err="${k}"]`); if (s) s.textContent = m; });
+        toast(e.message, false);
+      }
+    };
+  }
+
+  /* ---------- DETAILS ---------- */
+  async function showDetails(id) {
+    try {
+      const e = await api('/get/' + id);
+      view.innerHTML = `
+        <h2 style="margin-top:0">Employee Details</h2>
+        <dl>
+          <dt>Employee ID</dt><dd>${e.employeeId}</dd>
+          <dt>Full Name</dt><dd>${esc(e.fullName)}</dd>
+          <dt>Email</dt><dd>${esc(e.email)}</dd>
+          <dt>Phone</dt><dd>${esc(e.phoneNo)}</dd>
+          <dt>Department</dt><dd>${esc(e.department)}</dd>
+          <dt>Designation</dt><dd>${esc(e.designation)}</dd>
+          <dt>Date of Joining</dt><dd>${esc(e.dateOfJoining)}</dd>
+          <dt>Salary</dt><dd>${money(e.salary)}</dd>
+          <dt>Status</dt><dd><span class="badge ${esc(e.status)}">${esc(e.status)}</span></dd>
+        </dl>
+        <div class="actions">
+          <button class="primary" onclick="location.hash='#/edit/${e.employeeId}'">Edit</button>
+          <button onclick="location.hash='#/'">Back to list</button>
+        </div>`;
+    } catch (e) { view.innerHTML = `<div class="empty">${esc(e.message)}</div><div class="empty"><button onclick="location.hash='#/'">Back</button></div>`; }
+  }
+
+  /* ---------- ROUTER ---------- */
+  function route() {
+    const [, page, id] = location.hash.split('/');
+    if (page === 'add') showForm();
+    else if (page === 'edit' && id) showForm(id);
+    else if (page === 'view' && id) showDetails(id);
+    else showList();
+  }
+  window.addEventListener('hashchange', route);
+  route();
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+{
+  "info": {
+    "name": "Employee Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create employee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/create",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "create"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Urvashi Jadhav\",\n  \"email\": \"urvashi@example.com\",\n  \"phoneNo\": \"9876543210\",\n  \"department\": \"Engineering\",\n  \"designation\": \"Software Engineer\",\n  \"dateOfJoining\": \"2026-10-01\",\n  \"salary\": 50000,\n  \"status\": \"Active\"\n}"
+        }
+      }
+    },
+    {
+      "name": "List employees (page 0, size 10)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/get?page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "get"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Search by name/email",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/get?search=urv",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "get"
+          ],
+          "query": [
+            {
+              "key": "search",
+              "value": "urv"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Filter by department and status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/get?department=Engineering&status=Active",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "get"
+          ],
+          "query": [
+            {
+              "key": "department",
+              "value": "Engineering"
+            },
+            {
+              "key": "status",
+              "value": "Active"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get employee by id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/get/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "get",
+            "1"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update employee",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/update/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "update",
+            "1"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Urvashi Jadhav\",\n  \"email\": \"urvashi@example.com\",\n  \"phoneNo\": \"9876543210\",\n  \"department\": \"Engineering\",\n  \"designation\": \"Senior Software Engineer\",\n  \"dateOfJoining\": \"2026-10-01\",\n  \"salary\": 70000,\n  \"status\": \"Active\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Delete employee",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/delete/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "delete",
+            "1"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create - invalid phone (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/create",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "create"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Urvashi Jadhav\",\n  \"email\": \"urvashi@example.com\",\n  \"phoneNo\": \"1234567890\",\n  \"department\": \"Engineering\",\n  \"designation\": \"Software Engineer\",\n  \"dateOfJoining\": \"2026-10-01\",\n  \"salary\": 50000,\n  \"status\": \"Active\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create - duplicate email (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/employees/create",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "employees",
+            "create"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Urvashi Jadhav\",\n  \"email\": \"urvashi@example.com\",\n  \"phoneNo\": \"9876543210\",\n  \"department\": \"Engineering\",\n  \"designation\": \"Software Engineer\",\n  \"dateOfJoining\": \"2026-10-01\",\n  \"salary\": 50000,\n  \"status\": \"Active\"\n}"
+        }
+      }
+    }
+  ]
+}
